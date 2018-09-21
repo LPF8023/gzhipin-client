@@ -3,17 +3,23 @@
 同步action: 对象
 异步action: dispatch函数
  */
+// 引入客户端io
+import io from 'socket.io-client'
+
 import {
   reqRegister,
   reqLogin,
-  reqUpdateUser
+  reqUpdateUser,
+  reqUser,
+  reqUserList
 } from '../api'
 
 import {
   AUTH_SUCCESS,
   ERROR_MSG,
   RECEIVE_USER,
-  RESET_USER
+  RESET_USER,
+  RECEIVE_USER_LIST
 } from './action-types'  // 有几个action type就会定义几个同步action
 
 // 注册/登陆成功的同步action
@@ -23,7 +29,9 @@ const errorMsg = (msg) => ({type: ERROR_MSG, data:msg})
 // 接收用户的同步action
 const receiveUser = (user) => ({type: RECEIVE_USER, data: user})
 // 重置用户的同步action
-const resetUser = (msg) => ({type: RESET_USER, data: msg})
+export const resetUser = (msg) => ({type: RESET_USER, data: msg})
+// 接收用户列表的同步action
+export const receiveUserList = (userList) => ({type: RECEIVE_USER_LIST, data: userList})
 
 
 /*
@@ -103,6 +111,58 @@ export function updateUser(user) {
     }
   }
 }
+
+
+/*
+获取当前用户的异步action
+ */
+export function getUser() {
+  return async dispatch => {
+    // 发ajax请求, 获取user
+    const response = await reqUser()
+    const result = response.data
+    // 分发同步action
+    if(result.code===0) {// 成功得到user
+      dispatch(receiveUser(result.data))
+    } else { // 失败
+      dispatch(resetUser(result.msg))
+    }
+  }
+}
+
+/*
+获取用户列表的异步action
+ */
+export function getUserList(type) {
+  return async dispatch => {
+    const response = await reqUserList(type)
+    const result = response.data
+    if(result.code===0) {
+      const userList = result.data
+      dispatch(receiveUserList(userList))
+    }
+  }
+}
+
+// 连接服务器, 得到代表连接的socket对象
+const socket = io('ws://localhost:4000')
+
+// 绑定监听, 接收服务发送的消息
+socket.on('receiveMsg', (chatMsg) => {
+  console.log('浏览器接收到服务器返回的消息', chatMsg)
+})
+
+/*
+发送聊天消息的异步action
+ */
+export function sendMsg ({content, from, to}) {
+  return dispatch => {
+    // 发消息
+    socket.emit('sendMsg', {content, from, to})
+    console.log('浏览器向服务器发消息', {content, from, to})
+  }
+}
+
 
 /*
 async和await
